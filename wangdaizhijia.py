@@ -1,0 +1,188 @@
+# coding:utf8
+import re
+import csv
+import requests
+from time import sleep
+from bs4 import BeautifulSoup
+from pypinyin import lazy_pinyin
+from selenium import webdriver
+
+import models
+from models import DBSession
+from models import Product, Base, PlatData, ProblemPlat
+
+
+HEADERS = {"Cookie": "__jsluid_s=9d956f36619899229cc1c7de040697ee; WDZJptlbs=1; Hm_lvt_9e837711961994d9830dcd3f4b45f0b3=1578825667; _ga=GA1.2.26629386.1578825668; gr_user_id=30eafcf0-424e-45d4-8a89-74cc6090cf98; PHPSESSID=dribu5hagot7gs3apfu83mt365; Z6wq_e6e3_request_protocol=https; Z6wq_e6e3_con_request_uri=http%3A%2F%2Fpassport.wdzj.com%2Fuser%2Fqqconnect%3Fop%3Dcallback%26refer%3Dhttps%3A%2F%2Fshuju.wdzj.com%2Fproblem-1.html; Z6wq_e6e3_con_request_state=c1ab5fb04479d18b70396a1bc1a6c893; Z6wq_e6e3_saltkey=TyxJQkkQ; uid=2074816; login_channel=1; pc_login=1; Z6wq_e6e3_auth=8063Gp%2Fv9iFt%2F%2BYAotmp5G9oI%2Fv5wrh75liZHz86WaONpDr%2B4Vf2gfi4OFE%2BZH9MLQHjhGgtv4vDKfu19glz1IlqCbeF; auth_token=578d9sbdwleUvAOLbbCiY1%2FMgnfrNu%2Fw2c2f4qbYafLvaykCxbjdjNKvoJZE01Jq%2B9pN7%2Fyf5jpKkHsXcbzbVkYrUr0R; wdzj_session_source=https%253A%252F%252Fshuju.wdzj.com%252Fproblem-1.html; Hm_lpvt_9e837711961994d9830dcd3f4b45f0b3=1579451152; WDZJ_FRONT_SESSION_ID=5b1c9efdb4164a6d88ac6d042799173115429452769416644; _pk_id.1.b30f=5cb328c39cdc1fba.1578825667.7.1579451153.1579451153.; _pk_ses.1.b30f=*; gr_session_id_1931ea22324b4036a653ff1d3a0b4693=9ed98f81-2a30-49a8-bf12-a18a4130852c; gr_cs1_9ed98f81-2a30-49a8-bf12-a18a4130852c=user_id%3A2074816; gr_session_id_1931ea22324b4036a653ff1d3a0b4693_9ed98f81-2a30-49a8-bf12-a18a4130852c=true; _gid=GA1.2.1874952450.1579451154; Z6wq_e6e3_ulastactivity=ce54IWEAXNZCo4pV%2BaJsH%2FUqGKBamSGVGiYYZ4F8DtSpUt5Cque%2B",
+"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
+"Content-Type": "text/html; charset=utf-8"}
+
+
+def encode_response(resp):
+    if resp.encoding != 'ISO-8859-1':
+        resp.encoding = 'utf-8'
+
+
+def CrawlFailed(Exception):
+    pass
+
+def crawl_products():
+    url = "https://files.wdzjimages.com/shuju/product/search.json"
+    print("crawl products...")
+    response = requests.get(url)
+    status = response.status_code
+    if status != 200:
+        print("crawl failed. (status is not 200)")
+        raise CrawlFailed('crawl failed')
+    products = response.json()
+    for product in products:
+        session = DBSession()
+        new_product = Product(
+            plat_id = product.get('platId'),
+            name = product.get('platName'),
+            old_name = product.get('oldPlatName'),
+            pingyin = product.get('allPlatNamePin'),
+            pin = product.get('autoPin')
+        )
+        session.add(new_product)
+        session.commit()
+        session.close()
+
+def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
+    """
+    平台成交数据 https://shuju.wdzj.com/platdata-1.html
+    """
+    url = "https://shuju.wdzj.com/plat-data-custom.html"
+    form_data = {
+        "type": 1,
+        "shujuDate": shuju_date
+    }
+    response = requests.post(url)
+    status = response.status_code
+    if status != 200:
+        print("crawl failed. (status is not 200)")
+        raise CrawlFailed('crawl failed')
+    plats_data = response.json()
+    for plat_data in plats_data:
+        plat_id = plat_data.get('wdzjPlatId')
+        session = DBSession()
+        query = session.query(Product)
+        product = query.filter_by(plat_id=str(plat_id)).first()
+        new_platdata = PlatData(
+            plat_id=product.plat_id,
+            amount=plat_data.get('amount'),
+            incomeRate=plat_data.get('incomeRate'),
+            loanPeriod=plat_data.get('loanPeriod'),
+            netInflowOfThirty=plat_data.get('netInflowOfThirty'),
+            stayStillOfTotal=plat_data.get('stayStillOfTotal'),
+            fullloanTime=plat_data.get('fullloanTime'),
+            regCapital=plat_data.get('regCapital'),
+            timeOperation=plat_data.get('timeOperation'),
+            totalLoanNum=plat_data.get('totalLoanNum'),
+            bidderNum=plat_data.get('bidderNum'),
+            avgBidMoney=plat_data.get('avgBidMoney'),
+            top10DueInProportion=plat_data.get('top10DueInProportion'),
+            borrowerNum=plat_data.get('borrowerNum'),
+            avgBorrowMoney=plat_data.get('avgBorrowMoney'),
+            top10StayStillProportion=plat_data.get('top10StayStillProportion'),
+            developZhishu=plat_data.get('developZhishu'),
+            newbackground=plat_data.get('newbackground')
+        )
+        session.add(new_platdata)
+        session.commit()
+        session.close()
+
+        # crawl detail by plat_id
+        crawl_plat_detail(plat_id)
+
+
+def crawl_plat_detail(plat_id):
+    """
+    平台数据详情页(指数) https://www.wdzj.com/zhishu/detail-{plat_id}.html
+    """
+    url = "https://www.wdzj.com/zhishu/detail-{plat_id}.html".format(
+        plat_id=plat_id
+    )
+
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code != 200:
+        raise CrawlFailed('crawl failed!')
+    encode_response(response)
+    html = BeautifulSoup(response.text, features='lxml')
+    texts = list(reversed([div.string.strip() for div in html.select('.fr .xlist li div')]))
+    results = dict(zip(texts[0::2], texts[1::2]))
+    trans_results = {}
+    # 汉字转拼音
+    for k, v in results.items():
+        trans_results[''.join(lazy_pinyin(k))] = v
+    session = DBSession()
+    session
+    # 使用 xpath 或 css 选择器
+    pass
+
+
+def crawl_problem_plats():
+    """
+    问题平台 https://shuju.wdzj.com/problem-1.html
+    """
+    url = "https://shuju.wdzj.com/problem-list-all.html"
+    params = {"year": ""}
+    response = requests.get(url, params=params, headers=HEADERS)
+    json_data = response.json()
+    problem_plats = json_data.get('problemList')
+    for problem_plat in problem_plats:
+        new_problem_plat = ProblemPlat(
+            plat_id=problem_plat.get('platId'),  # plat_id
+            area=problem_plat.get('area'),  # 地区
+            oneline_time=problem_plat.get('onlineTime'),  # 上线时间
+            problem_date=problem_plat.get('problemTime'),  # 问题时间
+            event_type=problem_plat.get('type'),  # 事件类型
+            people_num=problem_plat.get('peopleNumber'),
+            status1=problem_plat.get('status1'),  # 保留字段status1
+            status2=problem_plat.get('status2')  # 保留字段status2
+        )
+        session = DBSession()
+        session.add(new_problem_plat)
+        session.commit()
+        session.close()
+
+
+def crawl_rate():
+    """
+    网贷天眼->网贷指数->资金流入率 https://www.p2peye.com/rating/
+    以月份为单位https://www.p2peye.com/rating_2019_8
+    """
+    # 1. 获取所有月份对应网址 2019_1
+    rating_url = "https://www.p2peye.com/rating"
+    response = requests.get(rating_url, headers=HEADERS)
+    if response.status_code != 200:
+        raise CrawlFailed('crawl failed!')
+    encode_response(response)
+    html = BeautifulSoup(response.text, features='lxml')
+    month_href = {}
+    for a in html.select('.rating-time-list a'):
+        month_href[a.string] = a.attrs.get('href')
+    # 2. 获取所有数据
+    for month, href in month_href.items():
+        url = "https://www.p2peye.com{href}".format(href=href)
+        browser = webdriver.Chrome()
+        browser.get(url)
+        sleep(2)
+        source_page = browser.page_source
+        browser.quit()
+        html = BeautifulSoup(source_page, features='lxml')
+        for tr in html.select('.main-bd .bd'):
+            plat_name = tr.select_one('.name-plat').string  # 平台名
+            standard = tr.select_one('.standard').string  # 资金流入率
+            # 数据存储
+            pass
+
+
+if __name__ == '__main__':
+    # 1.
+    # crawl_products()
+    # 2.
+    # crawl_plat_data()
+    # 3.
+    # crawl_problem_plats()
+    # crawl_plat_detail('689')
+    crawl_rate()
