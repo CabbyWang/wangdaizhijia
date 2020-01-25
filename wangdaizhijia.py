@@ -6,10 +6,12 @@ from time import sleep
 from bs4 import BeautifulSoup
 from pypinyin import lazy_pinyin
 from selenium import webdriver
+# from contextlib import contextmanager
+from itertools import chain
 
 import models
 from models import DBSession
-from models import Product, Base, PlatData, ProblemPlat
+from models import Product, Base, PlatData, ProblemPlat, PlatDetail, Rate
 
 
 HEADERS = {"Cookie": "__jsluid_s=9d956f36619899229cc1c7de040697ee; WDZJptlbs=1; Hm_lvt_9e837711961994d9830dcd3f4b45f0b3=1578825667; _ga=GA1.2.26629386.1578825668; gr_user_id=30eafcf0-424e-45d4-8a89-74cc6090cf98; PHPSESSID=dribu5hagot7gs3apfu83mt365; Z6wq_e6e3_request_protocol=https; Z6wq_e6e3_con_request_uri=http%3A%2F%2Fpassport.wdzj.com%2Fuser%2Fqqconnect%3Fop%3Dcallback%26refer%3Dhttps%3A%2F%2Fshuju.wdzj.com%2Fproblem-1.html; Z6wq_e6e3_con_request_state=c1ab5fb04479d18b70396a1bc1a6c893; Z6wq_e6e3_saltkey=TyxJQkkQ; uid=2074816; login_channel=1; pc_login=1; Z6wq_e6e3_auth=8063Gp%2Fv9iFt%2F%2BYAotmp5G9oI%2Fv5wrh75liZHz86WaONpDr%2B4Vf2gfi4OFE%2BZH9MLQHjhGgtv4vDKfu19glz1IlqCbeF; auth_token=578d9sbdwleUvAOLbbCiY1%2FMgnfrNu%2Fw2c2f4qbYafLvaykCxbjdjNKvoJZE01Jq%2B9pN7%2Fyf5jpKkHsXcbzbVkYrUr0R; wdzj_session_source=https%253A%252F%252Fshuju.wdzj.com%252Fproblem-1.html; Hm_lpvt_9e837711961994d9830dcd3f4b45f0b3=1579451152; WDZJ_FRONT_SESSION_ID=5b1c9efdb4164a6d88ac6d042799173115429452769416644; _pk_id.1.b30f=5cb328c39cdc1fba.1578825667.7.1579451153.1579451153.; _pk_ses.1.b30f=*; gr_session_id_1931ea22324b4036a653ff1d3a0b4693=9ed98f81-2a30-49a8-bf12-a18a4130852c; gr_cs1_9ed98f81-2a30-49a8-bf12-a18a4130852c=user_id%3A2074816; gr_session_id_1931ea22324b4036a653ff1d3a0b4693_9ed98f81-2a30-49a8-bf12-a18a4130852c=true; _gid=GA1.2.1874952450.1579451154; Z6wq_e6e3_ulastactivity=ce54IWEAXNZCo4pV%2BaJsH%2FUqGKBamSGVGiYYZ4F8DtSpUt5Cque%2B",
@@ -17,8 +19,48 @@ HEADERS = {"Cookie": "__jsluid_s=9d956f36619899229cc1c7de040697ee; WDZJptlbs=1; 
 "Content-Type": "text/html; charset=utf-8"}
 
 
+# def auto_commit():
+#     session = DBSession()
+#     session.add(new_problem_plat)
+#     session.commit()
+#     session.close()
+
+# 之后完善
+# @contextmanager
+# def auto_commit(self):
+#     try:
+#         session = DBSession()
+#         yield
+#         session.commit()
+#     except Exception as e:
+#         session.rollback()
+#         raise e
+#     finally:
+#         seesion.close()
+
+
+MONTHS_2019 = [
+    '2019-01-012019-01-31', '2019-02-012019-02-28', '2019-03-012019-03-31',
+    '2019-04-012019-04-30', '2019-05-012019-05-31', '2019-06-012019-06-30',
+    '2019-07-012019-07-31', '2019-08-012019-08-31', '2019-09-012019-09-30',
+    '2019-10-012019-10-31', '2019-11-012019-11-30', '2019-12-012019-12-31'
+]
+MONTHS_2018 = [
+    '2018-01-012018-01-31', '2018-02-012018-02-28', '2018-03-012018-03-31',
+    '2018-04-012018-04-30', '2018-05-012018-05-31', '2018-06-012018-06-30',
+    '2018-07-012018-07-31', '2018-08-012018-08-31', '2018-09-012018-09-30',
+    '2018-10-012018-10-31', '2018-11-012018-11-30', '2018-12-012018-12-31'
+]
+MONTHS_2017 = [
+    '2017-01-012017-01-31', '2017-02-012017-02-28', '2017-03-012017-03-31',
+    '2017-04-012017-04-30', '2017-05-012017-05-31', '2017-06-012017-06-30',
+    '2017-07-012017-07-31', '2017-08-012017-08-31', '2017-09-012017-09-30',
+    '2017-10-012017-10-31', '2017-11-012017-11-30', '2017-12-012017-12-31'
+]
+
+
 def encode_response(resp):
-    if resp.encoding != 'ISO-8859-1':
+    if resp.encoding == 'ISO-8859-1':
         resp.encoding = 'utf-8'
 
 
@@ -53,10 +95,10 @@ def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
     """
     url = "https://shuju.wdzj.com/plat-data-custom.html"
     form_data = {
-        "type": 1,
+        "type": 0,
         "shujuDate": shuju_date
     }
-    response = requests.post(url)
+    response = requests.post(url, data=form_data)
     status = response.status_code
     if status != 200:
         print("crawl failed. (status is not 200)")
@@ -68,7 +110,7 @@ def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
         query = session.query(Product)
         product = query.filter_by(plat_id=str(plat_id)).first()
         new_platdata = PlatData(
-            plat_id=product.plat_id,
+            plat_id=plat_data.get('wdzjPlatId'),
             amount=plat_data.get('amount'),
             incomeRate=plat_data.get('incomeRate'),
             loanPeriod=plat_data.get('loanPeriod'),
@@ -85,13 +127,27 @@ def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
             avgBorrowMoney=plat_data.get('avgBorrowMoney'),
             top10StayStillProportion=plat_data.get('top10StayStillProportion'),
             developZhishu=plat_data.get('developZhishu'),
-            newbackground=plat_data.get('newbackground')
+            newbackground=plat_data.get('newbackground'),
+            shuju_date=shuju_date
         )
         session.add(new_platdata)
         session.commit()
         session.close()
 
-        # crawl detail by plat_id
+
+def crawl_all_plats_detail():
+    """爬取所有平台的详细信息"""
+    # 1. 获取所有平台的url
+    # 2. 分别爬取
+    response = requests.get('https://shuju.wdzj.com/platdata-1.html')
+    if response.status_code != 200:
+        raise CrawlFailed('crawl failed...')
+    html = BeautifulSoup(response.text, features="lxml")
+    plat_ids = [tr.attrs['data-platid'] for tr in html.select('.normal-table #platTable tr')]
+    # hrefs = [a.attrs['href'] for a in html.select('.normal-table #platTable a[href^="//shuju"]')]
+    for plat_id in plat_ids:
+        # 分别爬取平台详细信息
+        # url = "https://www.wdzj.com/zhishu/detail-{id}.html".format(id=plat_id)
         crawl_plat_detail(plat_id)
 
 
@@ -102,22 +158,29 @@ def crawl_plat_detail(plat_id):
     url = "https://www.wdzj.com/zhishu/detail-{plat_id}.html".format(
         plat_id=plat_id
     )
-
+    print("crawl plat {}".format(plat_id))
     response = requests.get(url, headers=HEADERS)
     if response.status_code != 200:
-        raise CrawlFailed('crawl failed!')
+        print('crawl failed: code: {}, url: {}'.format(response.status_code, url))
+        return
+        # raise CrawlFailed('crawl failed!')
     encode_response(response)
     html = BeautifulSoup(response.text, features='lxml')
-    texts = list(reversed([div.string.strip() for div in html.select('.fr .xlist li div')]))
+    try:
+        texts = list(reversed([div.string.strip() for div in html.select('.fr .xlist li div')]))
+    except AttributeError as ex:
+        print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
+        return
     results = dict(zip(texts[0::2], texts[1::2]))
     trans_results = {}
     # 汉字转拼音
     for k, v in results.items():
         trans_results[''.join(lazy_pinyin(k))] = v
+    new_detail = PlatDetail(**trans_results)
     session = DBSession()
-    session
-    # 使用 xpath 或 css 选择器
-    pass
+    session.add(new_detail)
+    session.commit()
+    session.close()
 
 
 def crawl_problem_plats():
@@ -174,15 +237,40 @@ def crawl_rate():
             plat_name = tr.select_one('.name-plat').string  # 平台名
             standard = tr.select_one('.standard').string  # 资金流入率
             # 数据存储
-            pass
+            new_rate = Rate(
+                plat_name=plat_name,
+                standard=standard
+            )
+            session = DBSession()
+            session.add(new_rate)
+            session.commit()
+            session.close()
+
+
+def main():
+    # 1. plats data
+    for month in chain(MONTHS_2017, MONTHS_2018, MONTHS_2019):
+        crawl_plat_data(shuju_date=month)
+    # 2. plats detail
+    crawl_all_plats_detail()
+    # 3. problem plats
+    crawl_problem_plats()
+    # 4. rate
+    crawl_rate()
 
 
 if __name__ == '__main__':
     # 1.
     # crawl_products()
     # 2.
-    # crawl_plat_data()
+    # for month in chain(MONTHS_2017, MONTHS_2018, MONTHS_2019):
+    #     crawl_plat_data(shuju_date=month)
+    # crawl_plat_data(shuju_date="2019-12-012019-12-30")
     # 3.
     # crawl_problem_plats()
-    # crawl_plat_detail('689')
-    crawl_rate()
+    # crawl_all_plats_detail()
+    # crawl_rate()
+    main()
+
+
+# print 使用log

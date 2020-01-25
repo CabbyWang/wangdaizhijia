@@ -1,3 +1,4 @@
+# coding:utf-8
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, relationship
@@ -39,7 +40,7 @@ class PlatData(Base):
     avgBorrowMoney = Column(String(64))  # 人均借款金额
     top10StayStillProportion = Column(String(64))  # 前十大借款人待还金额占比
     developZhishu = Column(String(64))  # 发展指数排名
-    shuju_date = Column(String(16))  # 时间 (近七天 近30天 2019年12月 等以月份为单位)
+    shuju_date = Column(String(32))  # 时间 (近七天 近30天 2019年12月 等以月份为单位)
 
 
 class PlatDetail(Base):
@@ -62,14 +63,22 @@ class ProblemPlat(Base):
     __tablename__ = 'problem_plats'
 
     id = Column(Integer, autoincrement=True, primary_key=True)
-    plat_id=Column(String(8)),  # plat_id
-    area=Column(String(64)),  # 地区
-    oneline_time=Column(String(20)),  # 上线时间
-    problem_date=Column(String(20)),  # 问题时间
-    event_type=Column(String(64)),  # 事件类型
-    people_num=Column(String(8)),
-    status1=Column(String(8)),  # 保留字段status1
+    plat_id=Column(String(8))  # plat_id
+    area=Column(String(64))  # 地区
+    oneline_time=Column(String(20))  # 上线时间
+    problem_date=Column(String(20))  # 问题时间
+    event_type=Column(String(64))  # 事件类型
+    people_num=Column(String(8))
+    status1=Column(String(8))  # 保留字段status1
     status2=Column(String(8))  # 保留字段status2
+
+
+class Rate(Base):
+    __tablename__ = 'rate'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    plat_name = Column(String(64))  # 平台名
+    standard = Column(String(64))  # 资金流入率
 
 
 # 初始化数据库连接
