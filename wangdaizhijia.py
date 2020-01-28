@@ -19,26 +19,6 @@ HEADERS = {"Cookie": "__jsluid_s=9d956f36619899229cc1c7de040697ee; WDZJptlbs=1; 
 "Content-Type": "text/html; charset=utf-8"}
 
 
-# def auto_commit():
-#     session = DBSession()
-#     session.add(new_problem_plat)
-#     session.commit()
-#     session.close()
-
-# 之后完善
-# @contextmanager
-# def auto_commit(self):
-#     try:
-#         session = DBSession()
-#         yield
-#         session.commit()
-#     except Exception as e:
-#         session.rollback()
-#         raise e
-#     finally:
-#         seesion.close()
-
-
 MONTHS_2019 = [
     '2019-01-012019-01-31', '2019-02-012019-02-28', '2019-03-012019-03-31',
     '2019-04-012019-04-30', '2019-05-012019-05-31', '2019-06-012019-06-30',
@@ -239,7 +219,8 @@ def crawl_rate():
             # 数据存储
             new_rate = Rate(
                 plat_name=plat_name,
-                standard=standard
+                standard=standard,
+                month=month
             )
             session = DBSession()
             session.add(new_rate)
@@ -260,16 +241,6 @@ def main():
 
 
 if __name__ == '__main__':
-    # 1.
-    # crawl_products()
-    # 2.
-    # for month in chain(MONTHS_2017, MONTHS_2018, MONTHS_2019):
-    #     crawl_plat_data(shuju_date=month)
-    # crawl_plat_data(shuju_date="2019-12-012019-12-30")
-    # 3.
-    # crawl_problem_plats()
-    # crawl_all_plats_detail()
-    # crawl_rate()
     main()
 
 

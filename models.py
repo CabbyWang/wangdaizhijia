@@ -6,16 +6,16 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
-class Product(Base):
-    # 表名
-    __tablename__ = 'products'
+# class Product(Base):
+#     # 表名
+#     __tablename__ = 'products'
 
-    # 表结构
-    plat_id = Column(String(8), primary_key=True)
-    name = Column(String(64))
-    old_name = Column(String(64))
-    pingyin = Column(String(64))  # 全拼
-    pin = Column(String(64))  # 简拼
+#     # 表结构
+#     plat_id = Column(String(8), primary_key=True)
+#     name = Column(String(64))
+#     old_name = Column(String(64))
+#     pingyin = Column(String(64))  # 全拼
+#     pin = Column(String(64))  # 简拼
 
 
 class PlatData(Base):
@@ -79,6 +79,7 @@ class Rate(Base):
     id = Column(Integer, autoincrement=True, primary_key=True)
     plat_name = Column(String(64))  # 平台名
     standard = Column(String(64))  # 资金流入率
+    month = Column(String(32))  # 月份
 
 
 # 初始化数据库连接
