@@ -13,9 +13,6 @@ class Product(Base):
     # 表结构
     plat_id = Column(String(8), primary_key=True)
     name = Column(String(64))
-    old_name = Column(String(64))
-    pingyin = Column(String(64))  # 全拼
-    pin = Column(String(64))  # 简拼
 
 
 class PlatData(Base):
@@ -83,7 +80,7 @@ class Rate(Base):
 
 
 # 初始化数据库连接
-engine = create_engine('postgresql://wangsiyong@localhost:5432/wangdai')
+engine = create_engine('postgresql://wangsiyong@localhost:5432/wangdai', echo=True)
 # 创建DBSession类型:
 DBSession = sessionmaker(bind=engine)
 

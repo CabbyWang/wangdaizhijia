@@ -86,7 +86,22 @@ def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
     plats_data = response.json()
     for plat_data in plats_data:
         plat_id = plat_data.get('wdzjPlatId')
+        plat_name = plat_data.get('platName')
         session = DBSession()
+        session.execute(
+            """
+            INSERT INTO products
+                (plat_id, name)
+                select
+                '{plat_id}', '{plat_name}'
+            WHERE not EXISTS (SELECT *
+                FROM products
+                WHERE plat_id = '{plat_id}');
+            """.format(
+                plat_id=plat_id, plat_name=plat_name
+            )
+        )
+
         new_platdata = PlatData(
             plat_id=plat_data.get('wdzjPlatId'),
             amount=plat_data.get('amount'),
@@ -240,7 +255,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    for month in chain(MONTHS_2017, MONTHS_2018, MONTHS_2019):
+        crawl_plat_data(shuju_date=month)
 
 
 # print 使用log
