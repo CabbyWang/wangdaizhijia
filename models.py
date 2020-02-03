@@ -6,16 +6,16 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
-# class Product(Base):
-#     # 表名
-#     __tablename__ = 'products'
+class Product(Base):
+    # 表名
+    __tablename__ = 'products'
 
-#     # 表结构
-#     plat_id = Column(String(8), primary_key=True)
-#     name = Column(String(64))
-#     old_name = Column(String(64))
-#     pingyin = Column(String(64))  # 全拼
-#     pin = Column(String(64))  # 简拼
+    # 表结构
+    plat_id = Column(String(8), primary_key=True)
+    name = Column(String(64))
+    old_name = Column(String(64))
+    pingyin = Column(String(64))  # 全拼
+    pin = Column(String(64))  # 简拼
 
 
 class PlatData(Base):
