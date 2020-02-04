@@ -11,7 +11,8 @@ class Product(Base):
     __tablename__ = 'products'
 
     # 表结构
-    plat_id = Column(String(8), primary_key=True)
+    plat_id = Column(String(32), primary_key=True)
+    wdzj_id = Column(String(32))
     name = Column(String(64))
 
 
@@ -19,7 +20,11 @@ class PlatData(Base):
     __tablename__ = 'plats_data'
 
     id = Column(Integer, autoincrement=True, primary_key=True)
-    plat_id = Column(String(8))  # wdzjPlatId
+    plat_id = Column(String(32))  # wdzjPlatId
+    wdzj_id = Column(String(32))
+    plat_name = Column(String(64))
+    start_date = Column(String(64))
+    background = Column(String(64))  # 背景 风投系 等等
     newbackground = Column(String(64))  # 背景 风投系 等等
     amount = Column(String(64))  # 成交量
     incomeRate = Column(String(64))  # 平均参考收益率
@@ -44,7 +49,8 @@ class PlatDetail(Base):
     __tablename__ = 'plat_detail'
 
     id = Column(Integer, autoincrement=True, primary_key=True)
-    plat_id = Column(String(8))
+    plat_id = Column(String(32))
+    plat_name = Column(String(64))
     chengjiaojifen = Column(String(64))  # 成交积分
     fensandu = Column(String(64))  # 分散度
     gangganjifen = Column(String(64))  # 杠杆积分
@@ -60,7 +66,9 @@ class ProblemPlat(Base):
     __tablename__ = 'problem_plats'
 
     id = Column(Integer, autoincrement=True, primary_key=True)
-    plat_id=Column(String(8))  # plat_id
+    plat_id=Column(String(32))  # plat_id
+    wdzj_id=Column(String(32))  # wdzj_id
+    plat_name=Column(String(64))  # plat_name
     area=Column(String(64))  # 地区
     oneline_time=Column(String(20))  # 上线时间
     problem_date=Column(String(20))  # 问题时间
@@ -80,7 +88,7 @@ class Rate(Base):
 
 
 # 初始化数据库连接
-engine = create_engine('postgresql://wangsiyong@localhost:5432/wangdai', echo=True)
+engine = create_engine('postgresql://wangsiyong@localhost:5432/wangdaizhijia', echo=True)
 # 创建DBSession类型:
 DBSession = sessionmaker(bind=engine)
 

@@ -85,25 +85,30 @@ def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
         raise CrawlFailed('crawl failed')
     plats_data = response.json()
     for plat_data in plats_data:
-        plat_id = plat_data.get('wdzjPlatId')
+        plat_id = plat_data.get('platId')
         plat_name = plat_data.get('platName')
+        wdzj_id = plat_data.get('wdzjPlatId')
         session = DBSession()
-        session.execute(
-            """
-            INSERT INTO products
-                (plat_id, name)
-                select
-                '{plat_id}', '{plat_name}'
-            WHERE not EXISTS (SELECT *
-                FROM products
-                WHERE plat_id = '{plat_id}');
-            """.format(
-                plat_id=plat_id, plat_name=plat_name
+        if wdzj_id != 0:
+            session.execute(
+                """
+                INSERT INTO products
+                    (plat_id, wdzj_id, name)
+                    select
+                    '{plat_id}', '{wdzj_id}', '{plat_name}'
+                WHERE not EXISTS (SELECT *
+                    FROM products
+                    WHERE plat_id = '{plat_id}');
+                """.format(
+                    plat_id=plat_id, wdzj_id=wdzj_id, plat_name=plat_name
+                )
             )
-        )
 
         new_platdata = PlatData(
-            plat_id=plat_data.get('wdzjPlatId'),
+            plat_id=plat_data.get('platId'),
+            wdzj_id=plat_data.get('wdzjPlatId'),
+            plat_name=plat_data.get('platName'),
+            start_date=plat_data.get('startDate'),
             amount=plat_data.get('amount'),
             incomeRate=plat_data.get('incomeRate'),
             loanPeriod=plat_data.get('loanPeriod'),
@@ -120,6 +125,7 @@ def crawl_plat_data(shuju_date="2020-01-062020-01-12"):
             avgBorrowMoney=plat_data.get('avgBorrowMoney'),
             top10StayStillProportion=plat_data.get('top10StayStillProportion'),
             developZhishu=plat_data.get('developZhishu'),
+            background=plat_data.get('background'),
             newbackground=plat_data.get('newbackground'),
             shuju_date=shuju_date
         )
@@ -132,16 +138,10 @@ def crawl_all_plats_detail():
     """爬取所有平台的详细信息"""
     # 1. 获取所有平台的url
     # 2. 分别爬取
-    response = requests.get('https://shuju.wdzj.com/platdata-1.html')
-    if response.status_code != 200:
-        raise CrawlFailed('crawl failed...')
-    html = BeautifulSoup(response.text, features="lxml")
-    plat_ids = [tr.attrs['data-platid'] for tr in html.select('.normal-table #platTable tr')]
-    # hrefs = [a.attrs['href'] for a in html.select('.normal-table #platTable a[href^="//shuju"]')]
-    for plat_id in plat_ids:
-        # 分别爬取平台详细信息
-        # url = "https://www.wdzj.com/zhishu/detail-{id}.html".format(id=plat_id)
-        crawl_plat_detail(plat_id)
+    session = DBSession()
+    for product in session.query(Product).all():
+        crawl_plat_detail(product.wdzj_id)
+    session.close()
 
 
 def crawl_plat_detail(plat_id):
@@ -160,7 +160,8 @@ def crawl_plat_detail(plat_id):
     encode_response(response)
     html = BeautifulSoup(response.text, features='lxml')
     try:
-        texts = list(reversed([div.string.strip() for div in html.select('.fr .xlist li div')]))
+        texts = list(reversed([div.text.strip() for div in html.select('.fr .xlist li div')]))
+        plat_name = html.select('h1, h2')[0].text
     except AttributeError as ex:
         print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
         return
@@ -170,6 +171,7 @@ def crawl_plat_detail(plat_id):
     for k, v in results.items():
         trans_results[''.join(lazy_pinyin(k))] = v
     trans_results['plat_id'] = plat_id
+    trans_results['plat_name'] = plat_name
     new_detail = PlatDetail(**trans_results)
     session = DBSession()
     session.add(new_detail)
@@ -186,9 +188,30 @@ def crawl_problem_plats():
     response = requests.get(url, params=params, headers=HEADERS)
     json_data = response.json()
     problem_plats = json_data.get('problemList')
+
     for problem_plat in problem_plats:
+        session = DBSession()
+        plat_id = problem_plat.get('platId')
+        wdzj_id = problem_plat.get('wdzjPlatId')
+        plat_name = problem_plat.get('platName')
+        if wdzj_id != 0:
+            session.execute(
+                """
+                INSERT INTO products
+                    (plat_id, wdzj_id, name)
+                    select
+                    '{plat_id}', '{wdzj_id}', '{plat_name}'
+                WHERE not EXISTS (SELECT *
+                    FROM products
+                    WHERE plat_id = '{plat_id}');
+                """.format(
+                    plat_id=plat_id, wdzj_id=wdzj_id, plat_name=plat_name
+                )
+            )
         new_problem_plat = ProblemPlat(
             plat_id=problem_plat.get('platId'),  # plat_id
+            wdzj_id=problem_plat.get('wdzjPlatId'),  # wdzj_id
+            plat_name=problem_plat.get('platName'),  # plat_name
             area=problem_plat.get('area'),  # 地区
             oneline_time=problem_plat.get('onlineTime'),  # 上线时间
             problem_date=problem_plat.get('problemTime'),  # 问题时间
@@ -197,7 +220,8 @@ def crawl_problem_plats():
             status1=problem_plat.get('status1'),  # 保留字段status1
             status2=problem_plat.get('status2')  # 保留字段status2
         )
-        session = DBSession()
+
+
         session.add(new_problem_plat)
         session.commit()
         session.close()
@@ -246,17 +270,16 @@ def main():
     # 1. plats data
     for month in chain(MONTHS_2017, MONTHS_2018, MONTHS_2019):
         crawl_plat_data(shuju_date=month)
-    # 2. plats detail
-    crawl_all_plats_detail()
-    # 3. problem plats
+    # 2. problem plats
     crawl_problem_plats()
+    # 3. plats detail
+    crawl_all_plats_detail()
     # 4. rate
     crawl_rate()
 
 
 if __name__ == '__main__':
-    for month in chain(MONTHS_2017, MONTHS_2018, MONTHS_2019):
-        crawl_plat_data(shuju_date=month)
+    main()
 
 
 # print 使用log
