@@ -4,6 +4,7 @@ import csv
 import requests
 from time import sleep
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 from pypinyin import lazy_pinyin
 from selenium import webdriver
 # from contextlib import contextmanager
@@ -160,8 +161,12 @@ def crawl_plat_detail(plat_id):
     encode_response(response)
     html = BeautifulSoup(response.text, features='lxml')
     try:
+        for div in html.select('.fr .xlist li div'):
+            for child in div.children:
+                if isinstance(child, Tag):
+                    child.extract()
         texts = list(reversed([div.text.strip() for div in html.select('.fr .xlist li div')]))
-        plat_name = html.select('h1, h2')[0].text
+        plat_name = html.select('title h1, h2')[0].text
     except AttributeError as ex:
         print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
         return
