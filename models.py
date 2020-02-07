@@ -62,6 +62,20 @@ class PlatDetail(Base):
     toumingdu = Column(String(64))  # 透明度
 
 
+class PlatInfo(Base):
+    __tablename__ = 'plat_info'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    # plat_id = Column(String(32))
+    plat_name = Column(String(64))  # 平台名
+    area = Column(String(64))  # 地区
+    # cankaohuibao = Column(String(64))  # 参考回报
+    # chujieqixian = Column(String(64))  # 出借期限
+    dianping = Column(String(64))  # 点评
+    # zuorichengjiaoliang = Column(String(64))  # 昨日成交量
+    # zuoridaihaiyue = Column(String(64))  # 昨日待还余额
+
+
 class ProblemPlat(Base):
     __tablename__ = 'problem_plats'
 

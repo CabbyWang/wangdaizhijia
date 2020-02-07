@@ -9,10 +9,11 @@ from pypinyin import lazy_pinyin
 from selenium import webdriver
 # from contextlib import contextmanager
 from itertools import chain
+from lxml import etree
 
 import models
 from models import DBSession
-from models import Base, Product, PlatData, ProblemPlat, PlatDetail, Rate
+from models import Base, Product, PlatData, ProblemPlat, PlatDetail, Rate, PlatInfo
 
 
 HEADERS = {"Cookie": "__jsluid_s=9d956f36619899229cc1c7de040697ee; WDZJptlbs=1; Hm_lvt_9e837711961994d9830dcd3f4b45f0b3=1578825667; _ga=GA1.2.26629386.1578825668; gr_user_id=30eafcf0-424e-45d4-8a89-74cc6090cf98; PHPSESSID=dribu5hagot7gs3apfu83mt365; Z6wq_e6e3_request_protocol=https; Z6wq_e6e3_con_request_uri=http%3A%2F%2Fpassport.wdzj.com%2Fuser%2Fqqconnect%3Fop%3Dcallback%26refer%3Dhttps%3A%2F%2Fshuju.wdzj.com%2Fproblem-1.html; Z6wq_e6e3_con_request_state=c1ab5fb04479d18b70396a1bc1a6c893; Z6wq_e6e3_saltkey=TyxJQkkQ; uid=2074816; login_channel=1; pc_login=1; Z6wq_e6e3_auth=8063Gp%2Fv9iFt%2F%2BYAotmp5G9oI%2Fv5wrh75liZHz86WaONpDr%2B4Vf2gfi4OFE%2BZH9MLQHjhGgtv4vDKfu19glz1IlqCbeF; auth_token=578d9sbdwleUvAOLbbCiY1%2FMgnfrNu%2Fw2c2f4qbYafLvaykCxbjdjNKvoJZE01Jq%2B9pN7%2Fyf5jpKkHsXcbzbVkYrUr0R; wdzj_session_source=https%253A%252F%252Fshuju.wdzj.com%252Fproblem-1.html; Hm_lpvt_9e837711961994d9830dcd3f4b45f0b3=1579451152; WDZJ_FRONT_SESSION_ID=5b1c9efdb4164a6d88ac6d042799173115429452769416644; _pk_id.1.b30f=5cb328c39cdc1fba.1578825667.7.1579451153.1579451153.; _pk_ses.1.b30f=*; gr_session_id_1931ea22324b4036a653ff1d3a0b4693=9ed98f81-2a30-49a8-bf12-a18a4130852c; gr_cs1_9ed98f81-2a30-49a8-bf12-a18a4130852c=user_id%3A2074816; gr_session_id_1931ea22324b4036a653ff1d3a0b4693_9ed98f81-2a30-49a8-bf12-a18a4130852c=true; _gid=GA1.2.1874952450.1579451154; Z6wq_e6e3_ulastactivity=ce54IWEAXNZCo4pV%2BaJsH%2FUqGKBamSGVGiYYZ4F8DtSpUt5Cque%2B",
@@ -141,6 +142,7 @@ def crawl_all_plats_detail():
     # 2. 分别爬取
     session = DBSession()
     for product in session.query(Product).all():
+        crawl_plat_info(product.wdzj_id)
         crawl_plat_detail(product.wdzj_id)
     session.close()
 
@@ -160,14 +162,18 @@ def crawl_plat_detail(plat_id):
         # raise CrawlFailed('crawl failed!')
     encode_response(response)
     html = BeautifulSoup(response.text, features='lxml')
+    x_html = etree.HTML(response.text)
     try:
+        plat_name = x_html.xpath("//div[@class='title']/h1|h2")[0].text
         for div in html.select('.fr .xlist li div'):
             for child in div.children:
                 if isinstance(child, Tag):
                     child.extract()
         texts = list(reversed([div.text.strip() for div in html.select('.fr .xlist li div')]))
-        plat_name = html.select('title h1, h2')[0].text
     except AttributeError as ex:
+        print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
+        return
+    except IndexError as ex:
         print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
         return
     results = dict(zip(texts[0::2], texts[1::2]))
@@ -180,6 +186,45 @@ def crawl_plat_detail(plat_id):
     new_detail = PlatDetail(**trans_results)
     session = DBSession()
     session.add(new_detail)
+    session.commit()
+    session.close()
+
+
+def crawl_plat_info(plat_id):
+    url = "https://shuju.wdzj.com/plat-info-{plat_id}.html".format(
+        plat_id=plat_id
+    )
+    print("crawl plat {}".format(plat_id))
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code != 200:
+        print('crawl failed: code: {}, url: {}'.format(response.status_code, url))
+        return
+        # raise CrawlFailed('crawl failed!')
+    encode_response(response)
+    html = BeautifulSoup(response.text, features='lxml')
+    x_html = etree.HTML(response.text)
+    try:
+        plat_name = x_html.xpath("//div[@class='title']/h1|h2")[0].text
+        area = html.select('.pt-info em')[0].text
+        boxes = html.select('.pt-info .box')
+        plat_info = {}
+        for box in boxes:
+            value = box.select('b')[0].text.strip()
+            key = box.select('.box>div')[0].text.strip()
+            trans_key = ''.join(lazy_pinyin(key))
+            if trans_key == 'dianping':
+                plat_info[trans_key] = value
+    except AttributeError as ex:
+        print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
+        return
+    except IndexError as ex:
+        print('crawl failed: ex: {}, url: {}'.format(str(ex), url))
+        return
+    plat_info['plat_name'] = plat_name
+    plat_info['area'] = area
+    new_plat_info = PlatInfo(**plat_info)
+    session = DBSession()
+    session.add(new_plat_info)
     session.commit()
     session.close()
 
@@ -269,6 +314,16 @@ def crawl_rate():
             session.add(new_rate)
             session.commit()
             session.close()
+
+
+def crawl_all_plats_info():
+    """爬取所有平台的详细信息"""
+    # 1. 获取所有平台的url
+    # 2. 分别爬取
+    session = DBSession()
+    for product in session.query(Product).all():
+        crawl_plat_info(product.wdzj_id)
+    session.close()
 
 
 def main():
