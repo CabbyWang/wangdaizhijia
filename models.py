@@ -6,6 +6,7 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+
 class Product(Base):
     # 表名
     __tablename__ = 'products'
@@ -14,6 +15,8 @@ class Product(Base):
     plat_id = Column(String(32), primary_key=True)
     wdzj_id = Column(String(32))
     name = Column(String(64))
+    first_letter = Column(String(32))
+    # TODO is_processed
 
 
 class PlatData(Base):
@@ -74,6 +77,17 @@ class PlatInfo(Base):
     dianping = Column(String(64))  # 点评
     # zuorichengjiaoliang = Column(String(64))  # 昨日成交量
     # zuoridaihaiyue = Column(String(64))  # 昨日待还余额
+
+
+class PlatOverview(Base):
+    __tablename__ = 'plat_overview'
+
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    plat_name = Column(String(64))  # 平台名
+    zhucezijin = Column(String(64))  # 注册资金
+    shijiaozijin = Column(String(64))  # 实缴资金
+    yinhangcunguan = Column(String(64))  # 银行存管
+    toubiaobaozhang = Column(String(64))  # 投标保障
 
 
 class ProblemPlat(Base):
